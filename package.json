@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "build": "esbuild BaseTable.js --bundle --format=esm --outfile=dist/BaseTable.js --global-name=BaseTable --loader:.js=js --log-level=info --sourcemap"
+  },
+  
+  "devDependencies": {
+    "esbuild": "^0.25.2"
+  },
+  "dependencies": {
+    "jquery": "^3.7.1"
+  }
+}
