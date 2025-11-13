@@ -572,500 +572,541 @@ export class Table {
                     control.className = attrs.className || 'form-control';
                     break;
 
-                case 'image': {
-                    const row = document.createElement('div');
-                    Object.assign(row.style, {
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 180px',
-                        gap: '14px',
-                        alignItems: 'start'
-                    });
+   case 'image': {
+  const row = document.createElement('div');
+  Object.assign(row.style, {
+    display: 'grid',
+    gridTemplateColumns: '1fr 220px',
+    gap: '14px',
+    alignItems: 'start'
+  });
 
-                    // Скрытое поле для хранения значения (серверный путь или data URL)
-                    const control = document.createElement('input');
-                    control.type = 'hidden';
-                    control.className = attrs.className || 'form-control';
-                    control.name = field.name;
+  const control = document.createElement('input');
+  control.type = 'hidden';
+  control.className = attrs.className || 'form-control';
+  control.name = field.name;
 
-                    // Область Drag & Drop / клик для выбора файла (стилизованная)
-                    const dropArea = document.createElement('div');
-                    dropArea.className = 'bt-drop';
-                    dropArea.innerHTML = `
+  const dropArea = document.createElement('div');
+  dropArea.className = 'bt-drop';
+  dropArea.innerHTML = `
     <div class="bt-drop-icon" aria-hidden>
       <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 15v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
-    <div class="bt-drop-text">Перетащите изображение или кликните</div>
+    <div class="bt-drop-text">Перетащите изображения или кликните</div>
     <div class="bt-drop-sub">Поддерживаются JPG, PNG, WEBP. Макс. размер: 5 MB</div>
   `;
 
-                    // Скрытый input[type=file] для открытия диалога
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = 'image/*';
-                    fileInput.style.display = 'none';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.multiple = true;
+  fileInput.style.display = 'none';
 
-                    // Превью и кнопки справа
-                    const previewWrap = document.createElement('div');
-                    previewWrap.className = 'pe-right';
-                    const previewContainer = document.createElement('div');
-                    previewContainer.style.position = 'relative';
-                    const preview = document.createElement('img');
-                    preview.className = 'bt-preview';
-                    preview.src = (item && item[field.name]) ? item[field.name] : this.baseTable.placeholderSVG(360, 180);
-                    preview.alt = 'preview';
+  const previewWrap = document.createElement('div');
+  previewWrap.className = 'pe-right';
+  const previewContainer = document.createElement('div');
+  previewContainer.className = 'bt-preview-list';
+  previewContainer.style.display = 'grid';
+  previewContainer.style.gap = '10px';
+  previewContainer.style.maxHeight = '60vh';
+  previewContainer.style.overflow = 'auto';
+  previewWrap.appendChild(previewContainer);
 
-                    // progress UI
-                    const progressWrap = document.createElement('div');
-                    progressWrap.className = 'bt-progress-wrap';
-                    const progressBar = document.createElement('div');
-                    progressBar.className = 'bt-progress';
-                    const progressFill = document.createElement('div');
-                    progressFill.className = 'bt-progress-fill';
-                    progressBar.appendChild(progressFill);
-                    const progressPercent = document.createElement('div');
-                    progressPercent.className = 'bt-progress-percent';
-                    progressPercent.textContent = '0%';
-                    progressWrap.appendChild(progressBar);
-                    progressWrap.appendChild(progressPercent);
+  const controls = document.createElement('div');
+  controls.className = 'bt-controls';
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.className = 'bt-btn ghost';
+  resetBtn.textContent = 'Сбросить';
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'bt-btn primary';
+  openBtn.textContent = 'Открыть';
+  controls.appendChild(resetBtn);
+  controls.appendChild(openBtn);
+  previewWrap.appendChild(controls);
 
-                    // status text + cancel/retry button
-                    const status = document.createElement('div');
-                    status.className = 'bt-status bt-small';
-                    status.textContent = '';
+  const uploads = []; // records
 
-                    const controls = document.createElement('div');
-                    controls.className = 'bt-controls';
-                    const resetBtn = document.createElement('button');
-                    resetBtn.type = 'button';
-                    resetBtn.className = 'bt-btn ghost';
-                    resetBtn.textContent = 'Сбросить';
-                    const openBtn = document.createElement('button');
-                    openBtn.type = 'button';
-                    openBtn.className = 'bt-btn primary';
-                    openBtn.textContent = 'Открыть';
-                    controls.appendChild(resetBtn);
-                    controls.appendChild(openBtn);
+  const placeholder = (this.baseTable && typeof this.baseTable.placeholderSVG === 'function')
+    ? this.baseTable.placeholderSVG(360, 180)
+    : '';
 
-                    // Cancel/Retry button (появляется при загрузке/ошибке)
-                    const actionBtn = document.createElement('button');
-                    actionBtn.type = 'button';
-                    actionBtn.className = 'bt-btn ghost';
-                    actionBtn.style.display = 'none';
-                    actionBtn.textContent = 'Отменить';
-                    controls.appendChild(actionBtn);
+  const syncControl = () => {
+    const paths = uploads.filter(u => u.serverPath).map(u => u.serverPath);
+    try { control.value = JSON.stringify(paths); } catch (e) { control.value = '[]'; }
+    control.dispatchEvent(new Event('change', { bubbles: true }));
+  };
 
-                    previewContainer.appendChild(preview);
-                    previewContainer.appendChild(progressWrap);
-                    previewContainer.appendChild(status);
+  const makePreviewItem = (fileOrUrl, id, isExisting = false) => {
+    const container = document.createElement('div');
+    container.className = 'bt-preview-item';
+    Object.assign(container.style, { display: 'flex', gap: '10px', alignItems: 'center' });
 
-                    previewWrap.appendChild(previewContainer);
-                    previewWrap.appendChild(controls);
+    const img = document.createElement('img');
+    img.className = 'bt-preview-thumb';
+    img.width = 120; img.height = 80; img.style.objectFit = 'cover';
+    img.alt = typeof fileOrUrl === 'string' ? (fileOrUrl.split('/').pop() || 'preview') : (fileOrUrl.name || 'preview');
+    img.src = placeholder;
 
-                    // FIELD appended on left column later
-                    // Накладка загрузки (визуально не обязательна — используем прогресс и статус)
+    const meta = document.createElement('div');
+    meta.style.flex = '1 1 auto';
 
-                    // переменная для текущего XHR (чтобы можно было отменить)
-                    let currentXhr = null;
+    const nameEl = document.createElement('div');
+    nameEl.className = 'bt-preview-name';
+    nameEl.textContent = typeof fileOrUrl === 'string' ? (fileOrUrl.split('/').pop() || 'Файл') : (fileOrUrl.name || 'Файл');
 
-                    // вспомогательные функции для статусов
-                    const showStatus = (txt, state) => {
-                        status.textContent = txt || '';
-                        status.classList.remove('error', 'success');
-                        if (state === 'error')
-                            status.classList.add('error');
-                        if (state === 'success')
-                            status.classList.add('success');
-                    };
+    const progressWrap = document.createElement('div');
+    progressWrap.className = 'bt-progress-wrap small';
+    progressWrap.style.marginTop = '6px';
+    const progressBar = document.createElement('div');
+    progressBar.className = 'bt-progress';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'bt-progress-fill';
+    progressFill.style.width = '0%';
+    progressBar.appendChild(progressFill);
+    const progressPercent = document.createElement('div');
+    progressPercent.className = 'bt-progress-percent';
+    progressPercent.textContent = '0%';
+    progressWrap.appendChild(progressBar);
+    progressWrap.appendChild(progressPercent);
 
-                    const setProgress = (percent, indeterminate = false) => {
-                        if (indeterminate) {
-                            // добавляем индет-полоску
-                            if (!progressBar.querySelector('.bt-progress-indet')) {
-                                const ind = document.createElement('div');
-                                ind.className = 'bt-progress-indet';
-                                progressBar.appendChild(ind);
-                            }
-                            progressFill.style.width = '100%';
-                            progressPercent.textContent = '...';
-                        } else {
-                            const p = Math.max(0, Math.min(100, Math.round(percent)));
-                            const anim = progressBar.querySelector('.bt-progress-indet');
-                            if (anim)
-                                anim.remove();
-                            progressFill.style.width = `${p}%`;
-                            progressPercent.textContent = `${p}%`;
-                        }
-                    };
+    const status = document.createElement('div');
+    status.className = 'bt-status bt-small';
+    status.textContent = isExisting ? 'Готово' : '';
 
-                    const resetUI = () => {
-                        setProgress(0);
-                        showStatus('', '');
-                        actionBtn.style.display = 'none';
-                        actionBtn.textContent = 'Отменить';
-                        actionBtn.className = 'bt-btn ghost';
-                    };
+    meta.appendChild(nameEl);
+    meta.appendChild(progressWrap);
+    meta.appendChild(status);
 
-                    // Асинхронная функция загрузки файла на сервер через XHR (с поддержкой progress + cancel)
-                    const uploadFile = (file) => {
-                        return new Promise((resolve, reject) => {
-                            if (!(file instanceof File))
-                                return reject(new Error('uploadFile expects a File'));
+    const btns = document.createElement('div');
+    btns.style.display = 'flex';
+    btns.style.flexDirection = 'column';
+    btns.style.gap = '6px';
 
-                            // abort предыдущего если есть
-                            if (currentXhr) {
-                                try {
-                                    currentXhr.abort();
-                                } catch (e) {
-                                    /* ignore */
-                                }
-                                currentXhr = null;
-                            }
+    const btnCancel = document.createElement('button');
+    btnCancel.type = 'button'; btnCancel.className = 'bt-btn ghost'; btnCancel.textContent = 'Отменить';
+    const btnRetry = document.createElement('button');
+    btnRetry.type = 'button'; btnRetry.className = 'bt-btn primary'; btnRetry.textContent = 'Повторить'; btnRetry.style.display = 'none';
+    const btnRemove = document.createElement('button');
+    btnRemove.type = 'button'; btnRemove.className = 'bt-btn ghost'; btnRemove.textContent = 'Удалить';
 
-                            const uploadUrl = this.baseTable.options.uploadUrl || '/';
-                            const categoryName = (field && field.category) || (item && item.category) || this.baseTable.options.defaultCategory || 'default';
+    btns.appendChild(btnCancel);
+    btns.appendChild(btnRetry);
+    btns.appendChild(btnRemove);
 
-                            const fd = new FormData();
-                            fd.append('file', file);
-                            fd.append('category', categoryName);
-                            fd.append('admPanel', 'imageUpload');
+    container.appendChild(img);
+    container.appendChild(meta);
+    container.appendChild(btns);
 
-                            const xhr = new XMLHttpRequest();
-                            currentXhr = xhr;
+    return { container, img, progressFill, progressPercent, status, btnCancel, btnRetry, btnRemove, nameEl };
+  };
 
-                            xhr.open('POST', uploadUrl, true);
-                            if (this.baseTable.options.withCredentials)
-                                xhr.withCredentials = true;
+  const uploadSingle = (file, uploadRecord) => {
+    return new Promise((resolve, reject) => {
+      if (!(file instanceof File)) return reject(new Error('uploadSingle expects File'));
+      if (!file.type || !file.type.startsWith('image/')) {
+        uploadRecord.els.status.textContent = 'Неподдерживаемый формат';
+        uploadRecord.els.status.classList.add('error');
+        uploadRecord.state = 'error';
+        uploadRecord.els.btnRetry.style.display = 'inline-block';
+        uploadRecord.els.btnCancel.style.display = 'none';
+        return reject(new Error('Invalid image type'));
+      }
 
-                            // кастомные заголовки (не для Content-Type)
-                            if (this.baseTable.options.uploadHeaders && typeof this.baseTable.options.uploadHeaders === 'object') {
-                                Object.keys(this.baseTable.options.uploadHeaders).forEach((k) => {
-                                    try {
-                                        xhr.setRequestHeader(k, this.baseTable.options.uploadHeaders[k]);
-                                    } catch (err) {
-                                        /* ignore header set errors */
-                                    }
-                                });
-                            }
+      if (uploadRecord.xhr) try { uploadRecord.xhr.abort(); } catch (e) {}
+      const uploadUrl = (this.baseTable && this.baseTable.options && this.baseTable.options.uploadUrl) ? this.baseTable.options.uploadUrl : '/';
+      const categoryName = (field && field.category) || (item && item.category) || (this.baseTable && this.baseTable.options && this.baseTable.options.defaultCategory) || 'default';
 
-                            // показываем UI загрузки
-                            actionBtn.style.display = 'inline-block';
-                            actionBtn.textContent = 'Отменить';
-                            actionBtn.className = 'bt-btn ghost';
-                            showStatus('Начало загрузки...', '');
-                            setProgress(0);
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('category', categoryName);
+      fd.append('admPanel', 'imageUpload');
 
-                            // привяжем cancel
-                            const onCancel = () => {
-                                if (xhr) {
-                                    try {
-                                        xhr.abort();
-                                    } catch (e) {}
-                                    showStatus('Загрузка отменена', 'error');
-                                    resetUI();
-                                    reject(new Error('Upload cancelled'));
-                                }
-                            };
-                            actionBtn.onclick = onCancel;
+      const xhr = new XMLHttpRequest();
+      uploadRecord.xhr = xhr;
+      uploadRecord.state = 'uploading';
+      uploadRecord.els.status.textContent = 'Загрузка...';
+      uploadRecord.els.btnCancel.style.display = 'inline-block';
+      uploadRecord.els.btnRetry.style.display = 'none';
+      uploadRecord.els.status.classList.remove('error'); uploadRecord.els.status.classList.remove('success');
 
-                            xhr.upload.onprogress = (ev) => {
-                                if (ev.lengthComputable) {
-                                    setProgress((ev.loaded / ev.total) * 100, false);
-                                    showStatus('Загрузка: ' + Math.round((ev.loaded / ev.total) * 100) + '%', '');
-                                } else {
-                                    // индетерминированный режим
-                                    setProgress(0, true);
-                                    showStatus('Загрузка...', '');
-                                }
-                            };
+      xhr.open('POST', uploadUrl, true);
+      if (this.baseTable && this.baseTable.options && this.baseTable.options.withCredentials) xhr.withCredentials = true;
 
-                            xhr.onload = () => {
-                                currentXhr = null;
-                                // статус 2xx
-                                if (xhr.status >= 200 && xhr.status < 300) {
-                                    let data = {};
-                                    try {
-                                        data = JSON.parse(xhr.responseText || '{}');
-                                    } catch (e) {
-                                        data = {};
-                                    }
-                                    const serverPath = data.path || data.url || data.filePath || data.filename || data.file || null;
-                                    if (!serverPath) {
-                                        showStatus('Сервер не вернул путь к файлу', 'error');
-                                        resetUI();
-                                        return reject(new Error('Server did not return file path'));
-                                    }
-                                    // успех
-                                    setProgress(100);
-                                    showStatus('Готово', 'success');
-                                    actionBtn.style.display = 'none';
-                                    actionBtn.textContent = 'Загрузить ещё';
-                                    actionBtn.className = 'bt-btn ghost';
-                                    actionBtn.onclick = () => {
-                                        resetUI();
-                                        fileInput.value = '';
-                                    };
-                                    control.value = serverPath;
-                                    preview.src = serverPath;
-                                    control.dispatchEvent(new Event('change', {
-                                        bubbles: true
-                                    }));
-                                    return resolve(serverPath);
-                                } else {
-                                    let txt = xhr.responseText || `${xhr.status} ${xhr.statusText}`;
-                                    try {
-                                        txt = JSON.parse(xhr.responseText || '') || txt;
-                                    } catch (e) {
-                                        /* leave text */
-                                    }
-                                    showStatus('Ошибка: ' + (typeof txt === 'string' ? txt : JSON.stringify(txt)), 'error');
-                                    actionBtn.style.display = 'inline-block';
-                                    actionBtn.textContent = 'Повторить';
-                                    actionBtn.className = 'bt-btn primary';
-                                    actionBtn.onclick = () => {
-                                        resetUI();
-                                        handleFile(file);
-                                    };
-                                    resetUI();
-                                    return reject(new Error('Upload failed: ' + xhr.status));
-                                }
-                            };
+      if (this.baseTable && this.baseTable.options && this.baseTable.options.uploadHeaders) {
+        Object.keys(this.baseTable.options.uploadHeaders).forEach((k) => {
+          try { xhr.setRequestHeader(k, this.baseTable.options.uploadHeaders[k]); } catch (e) {}
+        });
+      }
 
-                            xhr.onerror = () => {
-                                currentXhr = null;
-                                showStatus('Сетевая ошибка при загрузке', 'error');
-                                actionBtn.style.display = 'inline-block';
-                                actionBtn.textContent = 'Повторить';
-                                actionBtn.className = 'bt-btn primary';
-                                actionBtn.onclick = () => {
-                                    resetUI();
-                                    handleFile(file);
-                                };
-                                resetUI();
-                                return reject(new Error('Network error during upload'));
-                            };
+      const onCancel = () => {
+        try { xhr.abort(); } catch (e) {}
+        uploadRecord.els.status.textContent = 'Отменено';
+        uploadRecord.els.status.classList.add('error');
+        uploadRecord.state = 'error';
+        uploadRecord.els.btnCancel.style.display = 'none';
+        uploadRecord.els.btnRetry.style.display = 'inline-block';
+        reject(new Error('Upload cancelled'));
+      };
+      uploadRecord.els.btnCancel.onclick = onCancel;
 
-                            xhr.onabort = () => {
-                                currentXhr = null;
-                                showStatus('Загрузка отменена', 'error');
-                                actionBtn.style.display = 'inline-block';
-                                actionBtn.textContent = 'Повторить';
-                                actionBtn.className = 'bt-btn primary';
-                                actionBtn.onclick = () => {
-                                    resetUI();
-                                    handleFile(file);
-                                };
-                                resetUI();
-                                return reject(new Error('Upload aborted'));
-                            };
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable) {
+          const p = Math.round((ev.loaded / ev.total) * 100);
+          uploadRecord.els.progressFill.style.width = `${p}%`;
+          uploadRecord.els.progressPercent.textContent = `${p}%`;
+        } else {
+          uploadRecord.els.progressPercent.textContent = '...';
+          uploadRecord.els.progressFill.style.width = '100%';
+        }
+      };
 
-                            xhr.send(fd);
-                        });
-                    };
+      xhr.onload = () => {
+        uploadRecord.xhr = null;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          let data = {};
+          try { data = JSON.parse(xhr.responseText || '{}'); } catch (e) { data = {}; }
+          const serverPath = data.path || data.url || data.filePath || data.filename || data.file || null;
+          if (!serverPath) {
+            uploadRecord.els.status.textContent = 'Сервер не вернул путь';
+            uploadRecord.els.status.classList.add('error');
+            uploadRecord.state = 'error';
+            uploadRecord.els.btnRetry.style.display = 'inline-block';
+            uploadRecord.els.btnCancel.style.display = 'none';
+            return reject(new Error('Server did not return file path'));
+          }
+          uploadRecord.serverPath = serverPath;
+          uploadRecord.state = 'done';
+          uploadRecord.els.status.textContent = 'Готово';
+          uploadRecord.els.status.classList.add('success');
+          uploadRecord.els.btnCancel.style.display = 'none';
+          uploadRecord.els.btnRetry.style.display = 'none';
+          uploadRecord.els.img.src = serverPath;
+          syncControl();
+          resolve(serverPath);
+        } else {
+          uploadRecord.state = 'error';
+          uploadRecord.els.status.textContent = `Ошибка ${xhr.status}`;
+          uploadRecord.els.status.classList.add('error');
+          uploadRecord.els.btnRetry.style.display = 'inline-block';
+          uploadRecord.els.btnCancel.style.display = 'none';
+          reject(new Error('Upload failed: ' + xhr.status));
+        }
+      };
 
-                    // Вспомогательная функция обработки файла/URL
-                    const handleFile = (fileOrUrl) => {
-                        if (!fileOrUrl)
-                            return;
-                        if (fileOrUrl instanceof File) {
-                            if (!fileOrUrl.type.startsWith('image/')) {
-                                preview.src = this.baseTable.placeholderSVG(360, 180);
-                                control.value = '';
-                                showStatus('Неподдерживаемый формат файла', 'error');
-                                return;
-                            }
-                            // сразу загружаем на сервер
-                            uploadFile(fileOrUrl).catch((err) => {
-                                console.error('Upload failed', err);
-                                // fallback: показать локальную превью, но не сохранять значение
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                    preview.src = String(reader.result || '');
-                                };
-                                reader.onerror = () => {
-                                    preview.src = this.baseTable.placeholderSVG(360, 180);
-                                    control.value = '';
-                                };
-                                reader.readAsDataURL(fileOrUrl);
+      xhr.onerror = () => {
+        uploadRecord.xhr = null;
+        uploadRecord.state = 'error';
+        uploadRecord.els.status.textContent = 'Сетевая ошибка';
+        uploadRecord.els.status.classList.add('error');
+        uploadRecord.els.btnRetry.style.display = 'inline-block';
+        uploadRecord.els.btnCancel.style.display = 'none';
+        reject(new Error('Network error'));
+      };
 
-                                // уведомление
-                                if (this.baseTable.notifications && typeof this.baseTable.notifications.error === 'function') {
-                                    this.baseTable.notifications.error('Не удалось загрузить изображение на сервер.');
-                                } else {
-                                    showStatus('Не удалось загрузить изображение', 'error');
-                                }
-                            });
-                        } else if (typeof fileOrUrl === 'string') {
-                            const url = fileOrUrl.trim();
-                            if (!url)
-                                return;
-                            const tmp = new Image();
-                            tmp.onload = () => {
-                                // Для URL мы не отправляем его на сервер автоматически — оставляем как есть.
-                                control.value = url;
-                                preview.src = url;
-                                control.dispatchEvent(new Event('change', {
-                                    bubbles: true
-                                }));
-                                showStatus('URL установлен', '');
-                            };
-                            tmp.onerror = () => {
-                                preview.src = this.baseTable.placeholderSVG(360, 180);
-                                control.value = '';
-                                showStatus('Невалидный URL изображения', 'error');
-                            };
-                            tmp.src = url;
-                        }
-                    };
+      xhr.onabort = () => {
+        uploadRecord.xhr = null;
+        uploadRecord.state = 'error';
+        uploadRecord.els.status.textContent = 'Отменено';
+        uploadRecord.els.status.classList.add('error');
+        uploadRecord.els.btnRetry.style.display = 'inline-block';
+        uploadRecord.els.btnCancel.style.display = 'none';
+        reject(new Error('Abort'));
+      };
 
-                    // Обработчики событий
-                    const onClickDrop = (e) => {
-                        e.preventDefault();
-                        fileInput.click();
-                    };
-                    const onFileChange = (e) => {
-                        const f = e.target.files && e.target.files[0];
-                        if (f)
-                            handleFile(f);
-                    };
-                    const onDragOver = (e) => {
-                        e.preventDefault();
-                        dropArea.classList.add('dragging');
-                    };
-                    const onDragLeave = (e) => {
-                        e.preventDefault();
-                        dropArea.classList.remove('dragging');
-                    };
-                    const onDrop = (e) => {
-                        e.preventDefault();
-                        dropArea.classList.remove('dragging');
-                        const f = (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
-                        if (f) {
-                            handleFile(f);
-                            return;
-                        }
-                        const text = (e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData('text')) || '';
-                        if (text && text.startsWith('http'))
-                            handleFile(text);
-                    };
-                    const onPaste = (e) => {
-                        const items = (e.clipboardData && e.clipboardData.items) || [];
-                        for (let i = 0; i < items.length; i++) {
-                            const it = items[i];
-                            if (it.kind === 'file') {
-                                const f = it.getAsFile();
-                                if (f) {
-                                    handleFile(f);
-                                    return;
-                                }
-                            }
-                        }
-                        const text = (e.clipboardData || window.clipboardData).getData('text');
-                        if (text && text.startsWith('http'))
-                            handleFile(text);
-                    };
+      xhr.send(fd);
+    });
+  };
 
-                    // reset/open кнопки
-                    const onReset = (e) => {
-                        e.preventDefault();
-                        control.value = '';
-                        fileInput.value = '';
-                        preview.src = this.baseTable.placeholderSVG(360, 180);
-                        control.dispatchEvent(new Event('change', {
-                            bubbles: true
-                        }));
-                        resetUI();
-                    };
-                    const onOpen = (e) => {
-                        e.preventDefault();
-                        const val = String(control.value || '').trim();
-                        if (!val)
-                            return;
-                        if (val.startsWith('data:') || val.startsWith('http')) {
-                            window.open(val, '_blank');
-                        } else {
-                            console.warn('Нечего открывать: значение не является ссылкой или data URL.');
-                            showStatus('Значение не является ссылкой', 'error');
-                        }
-                    };
+  const handleFiles = (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    files.forEach((file) => {
+      const id = Math.random().toString(36).slice(2);
+      const els = makePreviewItem(file, id, false);
+      previewContainer.appendChild(els.container);
+      const record = { id, file, xhr: null, state: 'idle', serverPath: null, els };
+      els.btnRetry.onclick = (e) => { e.preventDefault(); els.btnRetry.style.display = 'none'; record.state = 'idle'; uploadSingle(file, record).catch(()=>{}); };
+      els.btnRemove.onclick = (e) => {
+        e.preventDefault();
+        if (record.xhr) try { record.xhr.abort(); } catch (e) {}
+        els.container.remove();
+        const idx = uploads.findIndex(u => u.id === record.id);
+        if (idx !== -1) uploads.splice(idx, 1);
+        syncControl();
+      };
+      uploads.push(record);
+      const reader = new FileReader();
+      reader.onload = () => { els.img.src = String(reader.result || ''); };
+      reader.onerror = () => {};
+      reader.readAsDataURL(file);
+      uploadSingle(file, record).catch(() => {});
+    });
+  };
 
-                    // Навешиваем слушатели и сохраняем в this.baseTable._listeners
-                    dropArea.addEventListener('click', onClickDrop);
-                    this.baseTable._listeners.push({
-                        el: dropArea,
-                        ev: 'click',
-                        fn: onClickDrop
-                    });
+  // parse initial value (try field.value first, then maybe provided 'val')
+  const parseInitial = (v) => {
+    if (v == null) return [];
+    if (typeof v !== 'string') return Array.isArray(v) ? v.slice() : [];
+    let s = v.trim();
+    if (!s) return [];
+    if (s.indexOf('&quot;') !== -1) s = s.replace(/&quot;/g, '"').replace(/&#34;/g, '"');
+    try {
+      const parsed = JSON.parse(s);
+      return Array.isArray(parsed) ? parsed.map(x => String(x)) : [];
+    } catch (e) {
+      return [s];
+    }
+  };
 
-                    fileInput.addEventListener('change', onFileChange);
-                    this.baseTable._listeners.push({
-                        el: fileInput,
-                        ev: 'change',
-                        fn: onFileChange
-                    });
+  // initialize hidden control value from field.value or existing control attribute
+  const initialSource = (typeof field.value !== 'undefined') ? field.value : (attrs.value || control.value || '[]');
+  const initialArr = parseInitial(initialSource);
+  try { control.value = JSON.stringify(initialArr); } catch (e) { control.value = '[]'; }
 
-                    dropArea.addEventListener('dragover', onDragOver);
-                    this.baseTable._listeners.push({
-                        el: dropArea,
-                        ev: 'dragover',
-                        fn: onDragOver
-                    });
-                    dropArea.addEventListener('dragleave', onDragLeave);
-                    this.baseTable._listeners.push({
-                        el: dropArea,
-                        ev: 'dragleave',
-                        fn: onDragLeave
-                    });
-                    dropArea.addEventListener('drop', onDrop);
-                    this.baseTable._listeners.push({
-                        el: dropArea,
-                        ev: 'drop',
-                        fn: onDrop
-                    });
+  // initialize baseTable listeners array
+  if (!this.baseTable) this.baseTable = this.baseTable || {};
+  if (!Array.isArray(this.baseTable._listeners)) this.baseTable._listeners = [];
 
-                    dropArea.addEventListener('paste', onPaste);
-                    this.baseTable._listeners.push({
-                        el: dropArea,
-                        ev: 'paste',
-                        fn: onPaste
-                    });
+  // build upload records for existing server paths
+  initialArr.forEach((url) => {
+    const id = 'srv_' + Math.random().toString(36).slice(2);
+    const els = makePreviewItem(url, id, true);
+    // set image src to server url
+    els.img.src = url;
+    els.progressFill.style.width = '100%';
+    els.progressPercent.textContent = '100%';
+    els.status.textContent = 'Готово';
+    els.btnCancel.style.display = 'none';
+    els.btnRetry.style.display = 'none';
+    // remove handler
+    els.btnRemove.onclick = (e) => {
+      e.preventDefault();
+      const idx = uploads.findIndex(u => u.id === id);
+      if (idx !== -1) uploads.splice(idx, 1);
+      els.container.remove();
+      syncControl();
+    };
+    const record = { id, file: null, xhr: null, state: 'done', serverPath: url, els };
+    uploads.push(record);
+    previewContainer.appendChild(els.container);
+  });
 
-                    resetBtn.addEventListener('click', onReset);
-                    this.baseTable._listeners.push({
-                        el: resetBtn,
-                        ev: 'click',
-                        fn: onReset
-                    });
+  // attach drag/click/paste handlers
+  const onClickDrop = (e) => { e.preventDefault(); fileInput.click(); };
+  const onFileChange = (e) => {
+    const fList = e.target.files ? Array.from(e.target.files) : [];
+    handleFiles(fList);
+    fileInput.value = '';
+  };
+  const onDragOver = (e) => { e.preventDefault(); dropArea.classList.add('dragging'); };
+  const onDragLeave = (e) => { e.preventDefault(); dropArea.classList.remove('dragging'); };
+  const onDrop = (e) => {
+    e.preventDefault();
+    dropArea.classList.remove('dragging');
+    const dtFiles = (e.dataTransfer && e.dataTransfer.files) ? Array.from(e.dataTransfer.files) : [];
+    if (dtFiles.length) { handleFiles(dtFiles); return; }
+    const text = (e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData('text')) || '';
+    if (text && text.startsWith('http')) {
+      // add URL as serverPath (no upload)
+      const id = 'url_' + Math.random().toString(36).slice(2);
+      const els = makePreviewItem(text, id, true);
+      els.img.src = text;
+      els.btnRemove.onclick = (ev) => { ev.preventDefault(); const idx = uploads.findIndex(u => u.id === id); if (idx !== -1) uploads.splice(idx, 1); els.container.remove(); syncControl(); };
+      const record = { id, file: null, xhr: null, state: 'done', serverPath: text, els };
+      uploads.push(record);
+      previewContainer.appendChild(els.container);
+      syncControl();
+    }
+  };
+  const onPaste = (e) => {
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    const collected = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === 'file') {
+        const f = it.getAsFile();
+        if (f) collected.push(f);
+      }
+    }
+    if (collected.length) handleFiles(collected);
+    else {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (text && text.startsWith('http')) {
+        // add url as serverPath
+        const id = 'url_' + Math.random().toString(36).slice(2);
+        const els = makePreviewItem(text, id, true);
+        els.img.src = text;
+        els.btnRemove.onclick = (ev) => { ev.preventDefault(); const idx = uploads.findIndex(u => u.id === id); if (idx !== -1) uploads.splice(idx, 1); els.container.remove(); syncControl(); };
+        const record = { id, file: null, xhr: null, state: 'done', serverPath: text, els };
+        uploads.push(record);
+        previewContainer.appendChild(els.container);
+        syncControl();
+      }
+    }
+  };
 
-                    openBtn.addEventListener('click', onOpen);
-                    this.baseTable._listeners.push({
-                        el: openBtn,
-                        ev: 'click',
-                        fn: onOpen
-                    });
+  // reset/open
+  const onReset = (e) => {
+    e.preventDefault();
+    uploads.forEach(u => { try { u.xhr && u.xhr.abort(); } catch (e) {} });
+    uploads.length = 0;
+    previewContainer.innerHTML = '';
+    control.value = '[]';
+    control.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const onOpen = (e) => {
+    e.preventDefault();
+    let arr;
+    try { arr = JSON.parse(control.value || '[]'); } catch (e) { arr = []; }
+    if (arr.length) window.open(arr[0], '_blank');
+    else if (typeof showToast === 'function') showToast('Нет загруженных изображений');
+  };
 
-                    // соберём всё во фрагмент
-                    const leftCol = document.createElement('div');
-                    leftCol.appendChild(dropArea);
-                    leftCol.appendChild(fileInput);
-                    leftCol.appendChild(control);
+  // wire listeners and record for cleanup
+  dropArea.addEventListener('click', onClickDrop);
+  this.baseTable._listeners.push({ el: dropArea, ev: 'click', fn: onClickDrop });
 
-                    row.appendChild(leftCol);
-                    row.appendChild(previewWrap);
-                    wrap.appendChild(row);
+  fileInput.addEventListener('change', onFileChange);
+  this.baseTable._listeners.push({ el: fileInput, ev: 'change', fn: onFileChange });
 
-                    fieldMap[field.name] = control;
-                    return wrap;
-                }
+  dropArea.addEventListener('dragover', onDragOver);
+  this.baseTable._listeners.push({ el: dropArea, ev: 'dragover', fn: onDragOver });
+  dropArea.addEventListener('dragleave', onDragLeave);
+  this.baseTable._listeners.push({ el: dropArea, ev: 'dragleave', fn: onDragLeave });
+  dropArea.addEventListener('drop', onDrop);
+  this.baseTable._listeners.push({ el: dropArea, ev: 'drop', fn: onDrop });
+
+  document.addEventListener('paste', onPaste);
+  this.baseTable._listeners.push({ el: document, ev: 'paste', fn: onPaste });
+
+  resetBtn.addEventListener('click', onReset);
+  this.baseTable._listeners.push({ el: resetBtn, ev: 'click', fn: onReset });
+
+  openBtn.addEventListener('click', onOpen);
+  this.baseTable._listeners.push({ el: openBtn, ev: 'click', fn: onOpen });
+
+  // assemble DOM
+  const leftCol = document.createElement('div');
+  leftCol.appendChild(dropArea);
+  leftCol.appendChild(fileInput);
+  leftCol.appendChild(control);
+
+  row.appendChild(leftCol);
+  row.appendChild(previewWrap);
+  wrap.appendChild(row);
+
+  fieldMap[field.name] = control;
+
+  // make sure control reflects current serverPaths (synchronize)
+  syncControl();
+
+  return wrap;
+}
+
+
 
                 case 'hidden':
                     control = document.createElement('input');
                     control.type = 'hidden';
                     break;
+					
+				//TEST	
+				case 'froala': {
+					// создаём textarea
+					console.log('FROALA');
+					control = document.createElement('textarea');
+
+					// даём id, если его нет (некоторые библиотеки ожидают уникальный id)
+					if (!field.id) {
+						field.id = 'froala-' + Math.random().toString(36).slice(2, 9);
+					}
+					control.id = field.id;
+
+					control.className = attrs.className || 'form-control froala-textarea';
+					if (field.placeholder) control.placeholder = field.placeholder;
+					if (field.value) control.value = field.value;
+					control.dataset.editorType = 'froala';
+
+					// ИНСТРУКЦИЯ: вызывайте control._initFroala() только после appendChild(control)
+
+					control._initFroala = function (froalaOptions = {}) {
+						console.log('-> _initFroala called for', control.id);
+
+						if (control._froalaEditor) {
+							console.log('Froala already initialized for', control.id);
+							return control._froalaEditor;
+						}
+
+						if (typeof FroalaEditor === 'undefined') {
+							console.warn('FroalaEditor is not loaded. Include Froala JS/CSS before initializing.');
+							return null; // прерываем — иначе new FroalaEditor упадёт
+						}
+
+						const defaultOpts = {
+							toolbarButtons: froalaOptions.toolbarButtons || [
+								'bold', 'italic', 'underline', '|', 'formatUL', 'formatOL', '|', 'insertLink', 'insertImage', 'undo', 'redo'
+							],
+							placeholderText: field.placeholder || '',
+						};
+
+						const opts = Object.assign({}, defaultOpts, froalaOptions);
+
+						// Передаём DOM-элемент напрямую — надёжнее, чем селектор
+						try {
+							control._froalaEditor = new FroalaEditor(control, opts, function () {
+								console.log('Froala editor initialized callback for', control.id);
+								if (field.value) {
+									try { control._froalaEditor.html.set(field.value); } catch (e) { control.value = field.value; }
+								}
+								if (field.readOnly || field.disabled) {
+									try { control._froalaEditor.edit.off(); }
+									catch (e) { control._froalaEditor.opts.toolbarButtons = []; }
+								}
+							});
+						} catch (err) {
+							console.error('Ошибка при инициализации Froala: ', err);
+							return null;
+						}
+
+						// Подписка на изменения
+						try {
+							control._froalaEditor.events.on('contentChanged', function () {
+								try { control.value = control._froalaEditor.html.get(); } catch (e) {}
+								control.dispatchEvent(new Event('input', { bubbles: true }));
+							});
+						} catch (e) {
+							// Некоторые версии/сборки Froala могут иметь другой API — логируем
+							console.warn('Не удалось подписаться на contentChanged:', e);
+						}
+
+						return control._froalaEditor;
+					};
+
+					control.getHtml = function () {
+						if (control._froalaEditor) {
+							try { return control._froalaEditor.html.get(); } catch (e) { return control.value; }
+						}
+						return control.value;
+					};
+
+					control._destroyFroala = function () {
+						if (control._froalaEditor) {
+							try { control._froalaEditor.destroy(); } catch (e) { console.warn(e); }
+							control._froalaEditor = null;
+						}
+					};
+
+					break;
+				}
+
+	
 
                 case 'json': {
                     // editable JSON key:value editor (list + add/remove) + hidden field for submission
                     const rowWrap = document.createElement('div');
-                    rowWrap.className = attrs.className || 'bt-json-wrap';
+                    rowWrap.className = attrs.className || 'bt-wrap';
                     Object.assign(rowWrap.style, {
                         marginTop: '6px'
                     });
@@ -1440,72 +1481,183 @@ export class Table {
                     }
                     break;
 
-                case 'image':
-                    // el здесь — hidden input который хранит data: или путь/URL
-                    try {
-                        // находим DOM-элементы рядом: row, file input, preview img
-                        const ctrlEl = (el.id && form.querySelector(`#${el.id}`)) ? form.querySelector(`#${el.id}`) : el;
-                        const rowEl = ctrlEl ? (ctrlEl.closest?.('.bt-form-row') || ctrlEl.parentNode) : null;
-                        const fileInput = rowEl ? rowEl.querySelector('input[type="file"]') : null;
-                        const preview = rowEl ? rowEl.querySelector('img.bt-image-preview') : null;
+case 'image': {
+  try {
+    const ctrlEl = (el.id && form.querySelector(`#${el.id}`)) ? form.querySelector(`#${el.id}`) : el;
+    const rowEl = ctrlEl ? (ctrlEl.closest?.('.bt-form-row') || ctrlEl.parentNode) : null;
+    const fileInput = rowEl ? rowEl.querySelector('input[type="file"]') : null;
+    let preview = rowEl ? rowEl.querySelector('img.bt-image-preview') : null;
+    let thumbsWrap = rowEl ? rowEl.querySelector('.bt-wrap') : null;
 
-                        // подставляем значение (может быть data: или URL)
-                        if (val) {
-                            try {
-                                el.value = String(val);
-                            } catch (e) {
-                                el.value = '';
-                            }
-                            if (preview)
-                                preview.src = String(val);
-                        } else {
-                            el.value = '';
-                            if (preview)
-                                preview.src = this.baseTable.placeholderSVG(320, 180);
-                        }
+    const parseImages = (v) => {
+      if (v == null) return [];
+      if (typeof v === 'string') {
+        const s = v.trim();
+        if (!s) return [];
+        try { const p = JSON.parse(s); return parseImages(p); } catch (e) { return [s]; }
+      }
+      if (Array.isArray(v)) {
+        return v.map(x => (typeof x === 'string' ? x : String(x))).filter(Boolean);
+      }
+      if (typeof v === 'object' && v !== null) {
+        const keys = ['src','url','path','file','location','image','thumb','thumbnail'];
+        for (const k of keys) {
+          if (v[k]) {
+            const found = parseImages(v[k]);
+            if (found.length) return found;
+          }
+        }
+        const numeric = Object.keys(v).filter(k => String(Number(k)) === k)
+          .sort((a,b)=>Number(a)-Number(b)).map(k => v[k]);
+        if (numeric.length) return parseImages(numeric);
+      }
+      return [];
+    };
 
-                        // если есть file input — навесим handler для чтения файла в dataURL и подстановки в hidden + preview
-                        if (fileInput) {
-                            const onFileChange = (e) => {
-                                const f = e.target.files && e.target.files[0];
-                                if (!f)
-                                    return;
-                                if (!f.type || !f.type.startsWith('image/')) {
-                                    // not an image — ignore
-                                    return;
-                                }
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                    try {
-                                        el.value = String(reader.result || '');
-                                    } catch (err) {
-                                        el.value = '';
-                                    }
-                                    if (preview)
-                                        preview.src = el.value || this.baseTable.placeholderSVG(320, 180);
-                                };
-                                reader.onerror = () => {
-                                    if (preview)
-                                        preview.src = this.baseTable.placeholderSVG(320, 180);
-                                };
-                                reader.readAsDataURL(f);
-                            };
+    let currentArr = parseImages(val ?? el.value);
 
-                            // защита от двойной навески — если уже есть такой слушатель, не добавляем
-                            const existing = (this.baseTable._listeners || []).some(l => l.el === fileInput && l.ev === 'change');
-                            if (!existing) {
-                                fileInput.addEventListener('change', onFileChange);
-                                this.baseTable._listeners.push({
-                                    el: fileInput,
-                                    ev: 'change',
-                                    fn: onFileChange
-                                });
-                            }
-                        }
-                    } catch (err) {
-                        this.baseTable.error('image init error', err);
-                    }
-                    break;
+    const placeholder = (this.baseTable && typeof this.baseTable.placeholderSVG === 'function')
+      ? this.baseTable.placeholderSVG(320, 180)
+      : (this.options && this.options.placeholder) || '';
+
+    const saveHidden = (arr) => {
+      try { el.value = JSON.stringify(arr); } catch (e) { el.value = JSON.stringify([]); }
+    };
+    saveHidden(currentArr);
+
+    if (!preview && rowEl) {
+      preview = document.createElement('img');
+      preview.className = 'bt-image-preview';
+      preview.alt = 'preview';
+      preview.src = currentArr.length ? currentArr[0] : placeholder;
+      rowEl.insertBefore(preview, rowEl.firstChild);
+    } else if (preview) {
+      preview.src = currentArr.length ? currentArr[0] : placeholder;
+    }
+
+    if (!thumbsWrap && rowEl) {
+      thumbsWrap = document.createElement('div');
+      thumbsWrap.className = 'bt-wrap';
+      rowEl.appendChild(thumbsWrap);
+    }
+
+    const renderThumbnails = (arr) => {
+      if (!thumbsWrap) return;
+      thumbsWrap.innerHTML = '';
+      arr.forEach((src, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'bt-thumb';
+        wrap.dataset.index = idx;
+
+        const img = document.createElement('img');
+        img.className = 'bt-thumb-img';
+        img.src = src || placeholder;
+        img.alt = `img-${idx}`;
+        img.loading = 'lazy';
+        img.dataset.index = idx;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bt-thumb-remove';
+        btn.innerText = '×';
+        btn.title = 'Удалить';
+        btn.dataset.index = idx;
+
+        wrap.appendChild(img);
+        wrap.appendChild(btn);
+        thumbsWrap.appendChild(wrap);
+      });
+    };
+
+    renderThumbnails(currentArr);
+
+    if (!this.baseTable) this.baseTable = this.baseTable || {};
+    if (!Array.isArray(this.baseTable._listeners)) this.baseTable._listeners = this.baseTable._listeners || [];
+
+    const refreshState = (arr) => {
+      currentArr = Array.isArray(arr) ? arr.slice() : parseImages(el.value);
+      saveHidden(currentArr);
+      if (preview) preview.src = currentArr.length ? currentArr[0] : placeholder;
+      renderThumbnails(currentArr);
+    };
+
+    if (fileInput) {
+      const onFileChange = (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        if (!f.type || !f.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result || '');
+          let arr;
+          try { arr = parseImages(el.value); } catch (err) { arr = []; }
+          arr.unshift(dataUrl);
+          refreshState(arr);
+        };
+        reader.onerror = () => { if (preview) preview.src = placeholder; };
+        reader.readAsDataURL(f);
+      };
+
+      const already = (this.baseTable._listeners || []).some(l => l.el === fileInput && l.ev === 'change' && l.fn === onFileChange);
+      if (!already) {
+        fileInput.addEventListener('change', onFileChange);
+        this.baseTable._listeners.push({ el: fileInput, ev: 'change', fn: onFileChange });
+      }
+    }
+
+    if (thumbsWrap) {
+		this.addNotice(thumbsWrap, {
+		  type: 'info',
+		  title: 'Заметка',
+		  description: 'При нажатии на миниатюру она становится главным изображением товара!',
+		  timeout: 5000
+		});
+      const onThumbClick = (ev) => {
+        const target = ev.target;
+
+        if (target.matches('.bt-thumb-remove')) {
+          const idx = Number(target.dataset.index);
+          if (!Number.isNaN(idx)) {
+            const arr = parseImages(el.value);
+            arr.splice(idx, 1);
+            refreshState(arr);
+          }
+          ev.stopPropagation();
+          return;
+        }
+
+        const thumbEl = target.closest?.('.bt-thumb');
+        if (!thumbEl) return;
+        const img = thumbEl.querySelector('img.bt-thumb-img');
+        if (!img) return;
+        const idx = Number(img.dataset.index);
+        if (Number.isNaN(idx)) return;
+
+        const arr = parseImages(el.value);
+        if (!arr[idx]) return;
+
+        // перемещаем выбранный элемент в начало массива
+        const [item] = arr.splice(idx, 1);
+        arr.unshift(item);
+        refreshState(arr);
+
+        ev.stopPropagation();
+      };
+
+      const alreadyThumb = (this.baseTable._listeners || []).some(l => l.el === thumbsWrap && l.ev === 'click' && l.fn === onThumbClick);
+      if (!alreadyThumb) {
+        thumbsWrap.addEventListener('click', onThumbClick);
+        this.baseTable._listeners.push({ el: thumbsWrap, ev: 'click', fn: onThumbClick });
+      }
+    }
+
+  } catch (err) {
+    if (this.baseTable && typeof this.baseTable.error === 'function') this.baseTable.error('image init error', err);
+    else console.error('image init error', err);
+  }
+  break;
+}
+
 
                 case 'price':
                     if (val !== undefined && val !== null && String(val) !== '') {
@@ -1543,4 +1695,213 @@ export class Table {
             cancelBtn: cancel
         };
     }
+	
+/**
+ * Добавляет notice в контейнер (.notice-window или .notice-stack).
+ *
+ * container - Element (например .notice-window или элемент .notice-stack внутри него)
+ * options:
+ *  - type: 'info'|'success'|'warning'|'danger'
+ *  - title: string
+ *  - description: string
+ *  - timeout: ms (0 — не автоскрывать)
+ *  - icon: optional FontAwesome класс (строка)
+ *  - appendToTop: boolean (true — вставлять в начало стека)
+ *  - closeLabel: string (aria-label для кнопки закрытия)
+ *  - onClose: function(reason) optional callback ('manual'|'timeout'|'esc'|'removed')
+ *  - autofocus: boolean (фокус на уведомлении после добавления)
+ */
+addNotice(container, {
+  type = 'info',
+  title = '',
+  description = '',
+  timeout = 4000,
+  icon = '',
+  appendToTop = false,
+  closeLabel = 'Закрыть уведомление',
+  onClose = null,
+  autofocus = false
+} = {}) {
+  if (!container || !(container instanceof Element)) return null;
+
+  const icons = {
+    info: 'fa-solid fa-circle-info',
+    success: 'fa-solid fa-check-circle',
+    warning: 'fa-solid fa-triangle-exclamation',
+    danger: 'fa-solid fa-xmark-circle'
+  };
+  const chosenIcon = (typeof icon === 'string' && icon.trim()) ? icon.trim() : (icons[type] || icons.info);
+
+  // найдем стек внутри контейнера (если есть), иначе используем сам container
+  const stack = container.querySelector('.notice-stack') || container;
+
+  // ----- Create elements (safe) -----
+  const el = document.createElement('span');
+  el.className = `notice notice--${type} notice--enter`;
+  el.setAttribute('role', (type === 'info' ? 'status' : 'alert'));
+  el.setAttribute('aria-live', (type === 'info' ? 'polite' : 'assertive'));
+  el.tabIndex = -1; // чтобы можно было фокусировать
+
+  // icon wrapper (so CSS can style .notice__icon)
+  const iconWrap = document.createElement('span');
+  iconWrap.className = 'notice__icon';
+  const i = document.createElement('i');
+  i.className = chosenIcon;
+  i.setAttribute('aria-hidden', 'true');
+  iconWrap.appendChild(i);
+
+  // content
+  const content = document.createElement('span');
+  content.className = 'notice__content';
+
+  if (title) {
+    const t = document.createElement('span');
+    t.className = 'notice__title';
+    t.textContent = title; // безопасно
+    content.appendChild(t);
+  }
+
+  if (description) {
+    const d = document.createElement('span');
+    d.className = 'notice__desc';
+    d.textContent = description;
+    content.appendChild(d);
+  }
+
+  // close button
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'notice__close';
+  close.setAttribute('aria-label', closeLabel);
+  close.innerHTML = '&times;'; // safe: static char
+  // assemble
+  el.appendChild(iconWrap);
+  el.appendChild(content);
+  el.appendChild(close);
+
+  // ----- Animation / removal helpers -----
+  let timerId = null;
+  let startTs = 0;
+  let remaining = timeout;
+  let removed = false;
+
+  const startTimer = () => {
+    if (!remaining || remaining <= 0) return;
+    startTs = performance.now();
+    timerId = setTimeout(() => closeNotice('timeout'), Math.max(0, remaining));
+  };
+
+  const pauseTimer = () => {
+    if (timerId) {
+      clearTimeout(timerId);
+      timerId = null;
+      remaining = Math.max(0, remaining - (performance.now() - startTs));
+    }
+  };
+
+  // унифицированное закрытие — запускает exit-анимацию и затем удаляет элемент
+  const closeNotice = (reason = 'manual') => {
+    if (removed) return;
+    removed = true;
+    // stop timer if any
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    // remove enter class and add exit class to trigger CSS animation
+    el.classList.remove('notice--enter');
+    el.classList.add('notice--exit');
+
+    // after animation end remove DOM node; fallback timeout if browser didn't fire animationend
+    const onAnimEnd = (ev) => {
+      // ensure it's our exit animation (name may vary), but we remove regardless
+      cleanup();
+    };
+    const cleanup = () => {
+      el.removeEventListener('animationend', onAnimEnd);
+      el.removeEventListener('transitionend', onAnimEnd);
+      // remove listeners
+      el.removeEventListener('mouseenter', pauseTimer);
+      el.removeEventListener('mouseleave', startTimer);
+      close.removeEventListener('click', onClickClose);
+      document.removeEventListener('keydown', onKeyDown);
+      // remove node
+      if (el.parentNode) el.parentNode.removeChild(el);
+      // callback
+      if (typeof onClose === 'function') {
+        try { onClose(reason); } catch (e) { /* ignore */ }
+      }
+    };
+
+    el.addEventListener('animationend', onAnimEnd);
+    el.addEventListener('transitionend', onAnimEnd);
+
+    // fallback: if animationend not fired within 600ms, force cleanup
+    setTimeout(() => {
+      if (el.parentNode) cleanup();
+    }, 700);
+  };
+
+  // click on close
+  const onClickClose = (ev) => {
+    ev.stopPropagation();
+    closeNotice('manual');
+  };
+  close.addEventListener('click', onClickClose);
+
+  // pause on hover, resume on leave
+  el.addEventListener('mouseenter', () => {
+    pauseTimer();
+  });
+  el.addEventListener('mouseleave', () => {
+    // resume only if not already removed
+    if (!removed && remaining > 0) startTimer();
+  });
+
+  // Esc handler: close the most-recent-focused notice when Escape pressed
+  const onKeyDown = (ev) => {
+    if (ev.key === 'Escape' || ev.key === 'Esc') {
+      // only close if el contains focus or body focused and el is last child
+      if (document.activeElement === el || el.contains(document.activeElement)) {
+        ev.preventDefault();
+        closeNotice('esc');
+      }
+    }
+  };
+  document.addEventListener('keydown', onKeyDown);
+
+  // add enter animation cleanup (remove enter class after finished)
+  const onEnterAnimEnd = () => {
+    el.classList.remove('notice--enter');
+    el.removeEventListener('animationend', onEnterAnimEnd);
+  };
+  el.addEventListener('animationend', onEnterAnimEnd);
+
+  // ----- Insert into DOM -----
+  if (appendToTop && stack.firstChild) {
+    stack.insertBefore(el, stack.firstChild);
+  } else {
+    stack.appendChild(el);
+  }
+
+  // set remaining timer and start it if needed
+  remaining = timeout;
+  if (timeout && timeout > 0) startTimer();
+
+  // optional autofocus for accessibility (announce + keyboard nav)
+  if (autofocus) {
+    // slight delay so screenreaders pick up insertion
+    setTimeout(() => {
+      try { el.focus(); } catch (e) { /* ignore */ }
+    }, 50);
+  }
+
+  // return handle with utility methods
+  return {
+    el,
+    close: (reason = 'manual') => closeNotice(reason),
+    pause: pauseTimer,
+    resume: () => { if (!removed && remaining > 0) startTimer(); },
+    isRemoved: () => removed
+  };
+}
+
+
 }
